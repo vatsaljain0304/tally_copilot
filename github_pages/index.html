@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tally Copilot – Real-World Testing & Verification Console</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <h1>Tally Copilot</h1>
+        <span class="badge badge-info">Verification Console v2.0</span>
+      </div>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <span id="sessionStatusBadge" class="badge badge-warning">Uninitialized</span>
+        <button id="toggleInstBtn" class="btn-outline" style="color: #fff; border-color: #475569;">
+          📘 Testing Guide
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sticky Backend & Tally Control Bar -->
+  <section class="control-bar">
+    <div class="control-container">
+      <div class="input-group">
+        <label for="backendUrl">Backend URL (HTTPS or Local):</label>
+        <input type="text" id="backendUrl" value="http://localhost:8000" placeholder="https://xxxx.ngrok-free.app or http://localhost:8000" />
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <button id="btnConnect" class="btn-primary">
+          <span id="connectBtnText">Connect & Ping</span>
+        </button>
+        <button id="btnSyncTally" class="btn-success">
+          🔄 Sync Live Tally
+        </button>
+        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-muted); background: #f1f5f9; padding: 0.4rem 0.6rem; border-radius: var(--radius); border: 1px solid var(--border);">
+          <input type="checkbox" id="chkAutoSync" style="cursor: pointer;" />
+          ⚡ Live Auto-Sync
+        </label>
+        <input type="file" id="fileTallyXml" accept=".xml" style="display: none;" />
+        <button id="btnUploadXml" class="btn-outline" style="border-color: #3b82f6; color: #1d4ed8;" title="No server setup: upload an XML file exported from Tally">
+          📁 Upload Tally XML
+        </button>
+        <button id="btnSyncDemo" class="btn-secondary" title="Load sample company data for offline testing">
+          🧪 Load Sample Data
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <div class="status-pill" id="backendStatusPill">
+          <div class="status-dot" id="backendDot"></div>
+          <span id="backendStatusText">Backend: Disconnected</span>
+        </div>
+        <div class="status-pill" id="tallyStatusPill">
+          <div class="status-dot" id="tallyDot"></div>
+          <span id="tallyStatusText">Tally: Checking...</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Instructions Panel (Collapsible) -->
+  <div id="instructionsPanel" class="instructions-panel" style="display: none;">
+    <h3>How to Use This Testing Console (Simple 2-Step Guide)</h3>
+    <ol>
+      <li><strong>Option A: Upload Tally XML (No Installation Needed):</strong>
+        <ul>
+          <li>In TallyPrime, open <strong>Day Book</strong> (or Display &gt; Day Book).</li>
+          <li>Press <strong>Alt + E</strong> (Export) &gt; Format: <strong>XML (Data Interchange)</strong> &gt; Save file to your Desktop.</li>
+          <li>Click the blue <strong>📁 Upload Tally XML</strong> button above and select your file. All your cash runways and debtor predictions will appear instantly!</li>
+        </ul>
+      </li>
+      <li><strong>Option B: 1-Click Live Connection:</strong>
+        <ul>
+          <li>Double-click <code>1-Click-Run.bat</code> on the computer where Tally is open.</li>
+          <li>Your browser will pop open automatically with everything connected.</li>
+        </ul>
+      </li>
+      <li><strong>Testing & WhatsApp Sending:</strong>
+        <ul>
+          <li>Review <strong>Cash Runway</strong> and debtor predictions.</li>
+          <li>If any prediction differs from customer reality, click <strong>"⚠️ Discrepancy"</strong> on that row to record it.</li>
+          <li>In <strong>WhatsApp Actions</strong>, click <strong>"Send via WhatsApp Web"</strong> to test sending a reminder.</li>
+          <li>When finished, switch to <strong>Final Audit Report</strong> and click <strong>"Download Report"</strong> to share your feedback.</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Main Content Area -->
+  <main>
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-runway">📊 Cash Runway</button>
+      <button class="tab-btn" data-tab="tab-predict">🔮 Predictions & Invoices</button>
+      <button class="tab-btn" data-tab="tab-priority">🎯 Dynamic Priority</button>
+      <button class="tab-btn" data-tab="tab-whatsapp">
+        💬 WhatsApp Actions (<span id="tabCountPushed">0</span>/<span id="tabCountDrafted">0</span>)
+      </button>
+      <button class="tab-btn" data-tab="tab-discrepancies">
+        ⚠️ Discrepancies (<span id="tabCountDisc">0</span>)
+      </button>
+      <button class="tab-btn" data-tab="tab-report">📑 Final Audit Report</button>
+    </nav>
+
+    <!-- TAB 1: CASH RUNWAY -->
+    <section id="tab-runway" class="tab-content active">
+      <div class="grid-cards">
+        <div class="card">
+          <div class="card-title">Cash & Bank Balance</div>
+          <div class="card-value font-mono" id="rwCashNow">₹0.00</div>
+          <div class="card-meta">Live ledger closing balance</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Outstanding Receivables</div>
+          <div class="card-value font-mono" id="rwReceivables" style="color: var(--primary);">₹0.00</div>
+          <div class="card-meta" id="rwBillsCount">0 open bills</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Outstanding Payables</div>
+          <div class="card-value font-mono" id="rwPayables" style="color: var(--warning);">₹0.00</div>
+          <div class="card-meta">Supplier dues</div>
+        </div>
+        <div class="card">
+          <div class="card-title">30-Day Safe Cash Buffer</div>
+          <div class="card-value font-mono" id="rwSafeClosing">₹0.00</div>
+          <div class="card-meta">80% confidence Monte Carlo simulation</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Cash Flow Horizons & Probabilistic Buffer</h3>
+        <div class="table-container">
+          <table id="tblRunway">
+            <thead>
+              <tr>
+                <th>Horizon</th>
+                <th>Starting Cash</th>
+                <th>Expected Inflow</th>
+                <th>Safe Inflow (80% Conf.)</th>
+                <th>Supplier Outflows</th>
+                <th>Running Costs</th>
+                <th>Closing Safe Cash</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="8" class="text-center" style="padding: 2rem;">Click "Sync Live Tally" or "Load Sample Data" to simulate runway.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: INVOICE PREDICTIONS -->
+    <section id="tab-predict" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <h3 style="font-size: 1.1rem;">Payment Predictivity & Default Risk</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            Each invoice is scored using historical payment lags and settlement patterns. If the prediction disagrees with reality, click <strong>Report Discrepancy</strong>.
+          </p>
+        </div>
+        <button id="btnRefreshPredictions" class="btn-outline btn-sm">🔄 Refresh List</button>
+      </div>
+
+      <div class="table-container">
+        <table id="tblPredictions">
+          <thead>
+            <tr>
+              <th>Invoice Ref</th>
+              <th>Customer Name</th>
+              <th>Bill Date</th>
+              <th>Due Date</th>
+              <th>Overdue Days</th>
+              <th>Amount</th>
+              <th>Predicted Payment</th>
+              <th>14-Day Prob</th>
+              <th>Risk Tier</th>
+              <th>Verification</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="10" class="text-center" style="padding: 2rem;">No invoices loaded. Please sync data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: DYNAMIC PRIORITY -->
+    <section id="tab-priority" class="tab-content">
+      <div style="margin-bottom: 1rem;">
+        <h3 style="font-size: 1.1rem;">Dynamic Priority Collections Ranking</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Debtors ranked by impact score, overdue days, and probability gap. Click "Draft WhatsApp" to stage a personalized reminder.
+        </p>
+      </div>
+
+      <div class="table-container">
+        <table id="tblPriority">
+          <thead>
+            <tr>
+              <th>Priority Score</th>
+              <th>Customer Name</th>
+              <th>Contact Phone</th>
+              <th>Overdue Amount</th>
+              <th>Recommended Tone</th>
+              <th>Reason / Factors</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center" style="padding: 2rem;">No priority rankings available. Please sync data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 4: WHATSAPP ACTIONS & DISPATCH -->
+    <section id="tab-whatsapp" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <h3 style="font-size: 1.1rem;">WhatsApp Reminder Drafts & Live Dispatch Tracking</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            Click <strong>"Send via WhatsApp Web"</strong> to open directly in WhatsApp or <strong>"Mark as Pushed"</strong> to confirm dispatch.
+          </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <span class="badge badge-success font-mono" id="badgePushStats">0 Pushed / 0 Drafted (0%)</span>
+          <button id="btnCreateCustomDraft" class="btn-primary btn-sm">+ New Reminder</button>
+        </div>
+      </div>
+
+      <div id="whatsappListContainer">
+        <!-- Injected via JavaScript -->
+        <div class="card text-center" style="padding: 3rem;">
+          <p style="color: var(--text-muted);">No WhatsApp reminder actions drafted yet. Click "Draft WhatsApp" in Priority tab or sync data.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: DISCREPANCIES LOG -->
+    <section id="tab-discrepancies" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <h3 style="font-size: 1.1rem;">Discrepancy Audit Log</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            All logged differences between Copilot's calculations and client reality are recorded here for algorithmic refinement.
+          </p>
+        </div>
+        <button id="btnOpenNewDiscrepancyModal" class="btn-primary btn-sm">+ Log New Discrepancy</button>
+      </div>
+
+      <div class="table-container">
+        <table id="tblDiscrepancies">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Category</th>
+              <th>Entity / Subject</th>
+              <th>Copilot Output</th>
+              <th>User Expected</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6" class="text-center" style="padding: 2rem;">No discrepancies recorded yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 6: FINAL AUDIT REPORT -->
+    <section id="tab-report" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Session Audit & Verification Report</h3>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          This report packages the complete verification audit: prediction accuracy, WhatsApp messages drafted and actually pushed, and all discrepancy logs.
+        </p>
+
+        <div class="grid-cards" style="margin-bottom: 1.5rem;">
+          <div class="card">
+            <div class="card-title">Company Tested</div>
+            <div class="card-value" style="font-size: 1.3rem;" id="repCompany">Not Connected</div>
+            <div class="card-meta" id="repMode">Mode: Uninitialized</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Invoices Evaluated</div>
+            <div class="card-value font-mono" id="repInvoices">0</div>
+            <div class="card-meta">Payment predictivity computed</div>
+          </div>
+          <div class="card">
+            <div class="card-title">WhatsApp Dispatch Rate</div>
+            <div class="card-value font-mono" id="repPushRate" style="color: var(--success);">0.0%</div>
+            <div class="card-meta" id="repPushDetail">0 pushed / 0 drafted</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Discrepancies Logged</div>
+            <div class="card-value font-mono" id="repDiscCount" style="color: var(--danger);">0</div>
+            <div class="card-meta">Recorded for review</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+          <button id="btnDownloadJson" class="btn-primary">
+            📥 Download Audit Report (.JSON)
+          </button>
+          <button id="btnDownloadTxt" class="btn-success">
+            📄 Download Readable Summary (.TXT)
+          </button>
+          <button id="btnRefreshReport" class="btn-outline">
+            🔄 Refresh Metrics
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin-bottom: 0.75rem;">Report Preview (Plain Text)</h4>
+        <pre id="preReportText" style="background: #0f172a; color: #f8fafc; padding: 1rem; border-radius: var(--radius); font-size: 0.85rem; max-height: 400px; overflow-y: auto;">
+Report will generate here upon connection.
+        </pre>
+      </div>
+    </section>
+  </main>
+
+  <!-- Discrepancy Recording Modal -->
+  <div id="modalDiscrepancy" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.1rem;">Log Discrepancy / Observation</h3>
+        <button id="btnCloseModal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+      <form id="formDiscrepancy">
+        <div style="margin-bottom: 1rem;">
+          <label style="font-size: 0.85rem; font-weight: 600;">Category</label>
+          <select id="discCategory" required>
+            <option value="prediction_error">Prediction Error (Expected payment date differs)</option>
+            <option value="risk_mismatch">Risk Tier / Volatility Mismatch</option>
+            <option value="whatsapp_tone">WhatsApp Tone / Text Unsuitable</option>
+            <option value="cash_runway">Cash Runway Discrepancy</option>
+            <option value="general">General Feedback / Missing Data</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="font-size: 0.85rem; font-weight: 600;">Entity / Subject (Invoice No. or Party)</label>
+          <input type="text" id="discEntity" placeholder="e.g. INV-101 or ABC Traders" required />
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="font-size: 0.85rem; font-weight: 600;">Copilot Output</label>
+          <input type="text" id="discCopilotOutput" placeholder="e.g. Predicted pay date: 2026-11-20 (Probability 45%)" required />
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="font-size: 0.85rem; font-weight: 600;">What actually happens / Expected by Client</label>
+          <input type="text" id="discExpected" placeholder="e.g. Customer promised payment by 5th Nov, already in transit" required />
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="font-size: 0.85rem; font-weight: 600;">Tester Notes & Context</label>
+          <textarea id="discNotes" rows="3" placeholder="Explain the context or reason why Copilot output differs..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btnCancelModal" class="btn-outline">Cancel</button>
+          <button type="submit" class="btn-primary">Save Discrepancy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
